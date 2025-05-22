@@ -1,0 +1,12 @@
+nyc_taxi_weather:
+  outputs:
+    dev:
+      type: postgres
+      host: postgres         # ⚠️ DOCKER : c’est "postgres", pas "localhost"
+      user: airflow
+      pass: airflow
+      port: 5432
+      dbname: airflow
+      schema: public
+      threads: 2
+  target: dev

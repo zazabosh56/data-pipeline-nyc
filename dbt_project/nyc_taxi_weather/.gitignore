@@ -15,5 +15,5 @@ __pycache__/
 .vscode/
 
 # Environnements virtuels
-venv/
+.venv/
 env/

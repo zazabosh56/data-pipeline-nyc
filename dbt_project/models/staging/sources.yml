@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: public
+    database: airflow         # Ton nom de DB
+    schema: public
+    tables:
+      - name: fact_taxi_trips
+      - name: dim_weather

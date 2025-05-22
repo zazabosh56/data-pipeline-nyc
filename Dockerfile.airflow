@@ -1,0 +1,25 @@
+# Utilise l'image officielle Airflow
+FROM apache/airflow:2.8.2-python3.10
+
+USER root
+
+# Variables de version
+ENV SPARK_VERSION=3.5.1
+ENV HADOOP_VERSION=3
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+
+# Installe Java 17, wget et décompresse Spark
+RUN apt-get update \
+    && apt-get install -y openjdk-17-jre-headless wget curl gnupg2 \
+    && wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
+    && tar -xzf spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz -C /opt/ \
+    && mv /opt/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION} /opt/spark \
+    && rm spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
+
+# Ajoute Spark dans le PATH
+ENV SPARK_HOME=/opt/spark
+ENV PATH="${SPARK_HOME}/bin:${PATH}"
+
+USER airflow
+
+RUN pip install psycopg2-binary dbt-postgres
