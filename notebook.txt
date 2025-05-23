@@ -1,0 +1,101 @@
+#SPARK
+
+1. Quelle est la distribution des durées de trajets ?
+La distribution des durées de trajets pour les taxis jaunes à New York est fortement asymétrique :
+
+La majorité écrasante (plus de 80 %) des courses durent moins de 30 minutes.
+
+Le cœur de la distribution se situe entre 5 et 15 minutes.
+
+Les trajets excédant 30 minutes sont marginaux.
+
+
+2. Les longs trajets reçoivent-ils plus de pourboires ?
+Les trajets les plus courts (moins de 10 minutes) ont un pourcentage de pourboire moyen nettement supérieur (24%) par rapport aux trajets plus longs.
+
+Le pourcentage moyen de pourboire diminue de manière continue avec la durée du trajet :
+
+Il chute à 19% pour 10-40 minutes,
+
+Puis tombe à seulement 14% pour les trajets de plus de 40 minutes.
+
+Non, les longs trajets ne reçoivent pas plus de pourboires.
+Au contraire, plus la durée du trajet augmente, plus le pourcentage moyen de pourboire diminue.
+
+
+3. Quelles sont les heures de prise en charge les plus chargées ?
+L’analyse de la répartition horaire des prises en charge met en évidence une forte concentration de trajets entre 14h et 19h, avec un maximum à 18h (plus de 214 000 trajets). Cette plage horaire correspond aux mouvements liés à la fin des horaires de travail et à la transition vers les activités du soir. À l’inverse, la fréquentation décroît fortement durant la nuit.
+
+
+4. Existe-t-il une corrélation entre la distance du trajet et le pourcentage de pourboire ? 
+Les trajets courts (0-2 km) génèrent en moyenne les plus hauts pourcentages de pourboire (23 %).
+
+Les trajets moyens (2-5 km) et longs (>5 km) affichent des pourcentages de pourboire inférieurs, autour de 19 %.
+
+Non, il n’existe pas de corrélation positive directe entre la distance du trajet et le pourcentage de pourboire.
+
+Au contraire, on constate que plus la distance est courte, plus le pourcentage de pourboire est élevé. Sur les longs trajets, le pourcentage baisse. Cette tendance va à l’encontre de l’idée reçue selon laquelle de longs trajets seraient récompensés par des pourcentages de pourboire plus importants.
+
+
+
+# Spark Streaming ou Flink
+
+1. Quelle est la température moyenne lors des pics de trajets ?
+À 18h, heure identifiée comme un pic de trajets, la température moyenne enregistrée est d’environ 20.87°C.
+
+Le nombre de trajets à cette heure est de 26 543.
+
+
+2. Quel est l’impact du vent ou de la pluie sur le nombre de trajets ?
+Catégorie météo "Clear" (Temps clair)
+
+Le nombre de trajets est le plus élevé, particulièrement quand le vent est modéré (5-10 m/s) ou faible (<5 m/s).
+
+Même avec un vent fort (>10 m/s), le volume de trajets reste élevé, ce qui indique que le vent seul, sans pluie, a un impact limité sur la demande.
+
+Catégorie météo "Rainy" (Pluie)
+
+Le nombre de trajets diminue par rapport au temps clair, quel que soit le niveau de vent.
+
+La pluie semble réduire la demande en taxi, surtout combinée avec du vent fort ou modéré.
+
+Paradoxalement, le vent fort en temps de pluie (299 235 trajets) est presque aussi fréquent que le vent modéré (320 284 trajets).
+
+Catégorie météo "Snowy" (Neige)
+
+Le nombre de trajets est bien plus faible, ce qui est logique car la neige rend les déplacements plus difficiles.
+
+On observe une baisse encore plus nette du nombre de trajets lors de vents forts (>10 m/s).
+
+Conclusion
+La pluie a un effet négatif net sur le nombre de trajets par rapport au temps clair.
+
+Le vent, bien que modéré ou fort, n’a pas un impact aussi marqué que la pluie, mais accentue la baisse des trajets quand combiné à de mauvaises conditions météo (pluie, neige).
+
+Le temps clair reste le scénario le plus favorable pour la demande taxi.
+
+
+
+# dbt / Analyse
+1. Quels comportements de trajets observe-t-on selon les types de météo ?
+Nombre de trajets : On observe que la majorité des trajets ont lieu lors d’une météo claire (~2 millions), suivis des jours de pluie (~880k), puis des jours de neige (~128k). Cela confirme que la météo influence la fréquentation des taxis, avec moins de trajets sous neige, ce qui est attendu.
+
+Durée moyenne des trajets : La durée moyenne est très proche entre les conditions météorologiques, avec un léger allongement des trajets sous neige (16 min vs ~15.7 min pour les autres). Cela peut s’expliquer par des conditions de circulation plus difficiles ou une conduite plus prudente.
+
+Pourboire moyen : Le pourboire moyen est un peu plus élevé en conditions de météo claire (21.5%) et neige (21.2%) par rapport à la pluie (20.7%). Cela peut suggérer une légère influence de la météo sur le comportement de pourboire, potentiellement liée à la difficulté ou à la satisfaction client.
+
+
+2. À quelle heure observe-t-on le plus de clients à haute valeur ?
+L’heure où l’on observe le plus de clients à haute valeur (avec un total de course > 50) est 14h, suivie de près par 16h, 15h, 17h et 13h.
+
+Le montant moyen des courses dépasse les 26-29 dollars pendant ces heures, ce qui confirme que ce sont des pics d’activité hautement rentables.
+
+
+3. La météo influence-t-elle le comportement en matière de pourboires ?
+Les résultats montrent que la météo a un impact léger sur le comportement des pourboires :
+
+Sous un ciel clair (Clear), le pourboire moyen est d’environ 21.51 %.
+
+Sous la pluie (Rainy), le pourboire moyen baisse légèrement à 20.67 %.
+
+Sous la neige (Snowy), il remonte un peu à 21.19 %.
