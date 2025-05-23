@@ -25,5 +25,5 @@ select
     weather.weather_hour as matched_weather_hour
 from taxi
 left join weather
-    on date_trunc('hour', taxi.tpep_pickup_datetime) = weather.weather_hour
+    on date_trunc('hour', taxi.pickup_time) = weather.weather_hour
     -- Si la colonne pickup s'appelle différemment, remplace par le bon nom !

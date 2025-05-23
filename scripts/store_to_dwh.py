@@ -1,9 +1,9 @@
 import os
 import glob
 import psycopg2
-import psycopg2.extras
 import pandas as pd
 import logging
+import tempfile
 
 logging.basicConfig(
     level=logging.INFO,
@@ -12,7 +12,7 @@ logging.basicConfig(
 
 TABLE_NAME = "taxi_data"
 
-def store_to_dwh():
+def store_to_dwh_copy():
     input_dir = "/opt/airflow/data/processed/yellow_taxi"
     files = glob.glob(os.path.join(input_dir, "*.parquet"))
     if not files:
@@ -33,39 +33,39 @@ def store_to_dwh():
                 for file in files:
                     logging.info(f"Chargement du fichier : {file}")
                     df = pd.read_parquet(file)
+                    df = df.drop_duplicates(subset=["VendorID", "tpep_pickup_datetime", "tpep_dropoff_datetime"])
                     logging.info(f"Fichier chargé ({len(df)} lignes).")
 
                     if df.empty:
                         logging.warning(f"Fichier vide ignoré : {file}")
                         continue
 
-                    records = [
-                        (
-                            row.get('VendorID'), 
-                            row.get('tpep_pickup_datetime'), 
-                            row.get('tpep_dropoff_datetime'),
-                            row.get('passenger_count'), 
-                            row.get('trip_distance'),
-                            row.get('fare_amount'),
-                            row.get('tip_amount'),
-                            row.get('total_amount'),
-                            row.get('pickup_date')
-                        ) for _, row in df.iterrows()
-                    ]
+                    if "passenger_count" in df.columns:
+                         df["passenger_count"] = df["passenger_count"].fillna(0).astype(int)
 
-                    logging.info(f"Insertion en cours dans PostgreSQL : {len(records)} lignes.")
-                    psycopg2.extras.execute_batch(cursor, f"""
-                        INSERT INTO {TABLE_NAME} (
-                            VendorID, tpep_pickup_datetime, tpep_dropoff_datetime,
-                            passenger_count, trip_distance, fare_amount, tip_amount, total_amount, pickup_date
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        ON CONFLICT DO NOTHING
-                    """, records)
+                    # Écrire dans un CSV temporaire sans index, UTF-8, header adapté
+                    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as tmpfile:
+                        csv_path = tmpfile.name
+                        df.to_csv(tmpfile, index=False, header=False)
+
+                    logging.info(f"Insertion en masse via COPY depuis {csv_path}")
+
+                    with open(csv_path, "r", encoding="utf-8") as f:
+                        cursor.copy_expert(f"""
+                            COPY {TABLE_NAME} (
+                                VendorID, tpep_pickup_datetime, tpep_dropoff_datetime,
+                                passenger_count, trip_distance, fare_amount, tip_amount, total_amount, pickup_date
+                            )
+                            FROM STDIN WITH CSV
+                        """, f)
+                    os.remove(csv_path)  # Nettoyage du fichier temporaire
+
                     logging.info("Insertion terminée.")
+
                 conn.commit()
                 logging.info("✅ Données insérées avec succès dans PostgreSQL.")
     except Exception as e:
         logging.error(f"Erreur lors de l’insertion dans le DWH : {e}")
 
 if __name__ == "__main__":
-    store_to_dwh()
+    store_to_dwh_copy()

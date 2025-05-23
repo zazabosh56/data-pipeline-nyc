@@ -13,5 +13,6 @@ select
     avg(trip_duration) as avg_trip_duration,
     avg(tip_percent) as avg_tip_percent
 from enriched
-group by pickup_hour, weather_category
+group by date_trunc('hour', pickup_time), weather_category
 order by pickup_hour, weather_category
+

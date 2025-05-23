@@ -1,6 +1,8 @@
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
+from airflow.sensors.external_task import ExternalTaskSensor
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta
 import subprocess
@@ -73,41 +75,43 @@ with DAG(
     dag_id='weather_streaming_pipeline',
     default_args=default_args,
     description='Pipeline météo : collecte, streaming et transformation',
-    schedule_interval='@hourly',
+    schedule_interval=None,  # ATTENTION : schedule_interval=None pour empêcher le scheduling automatique
     start_date=days_ago(1),
     catchup=False,
     tags=['weather', 'streaming'],
 ) as dag:
 
+    # PAS de wait_taxi_pipeline ici !
     create_weather_table_task = PythonOperator(
         task_id='create_weather_table',
         python_callable=create_weather_table
     )
-
     fetch_task = PythonOperator(
         task_id='fetch_weather_data',
         python_callable=run_weather_download
     )
-
     stream_task = PythonOperator(
         task_id='process_streaming_weather_data',
         python_callable=run_weather_streaming_processing
     )
-
     create_dim_weather_task = PythonOperator(
         task_id='create_dim_weather_table',
         python_callable=create_dim_weather_table
     )
-
     transform_dim_weather = BashOperator(
         task_id='transform_dim_weather',
         bash_command='spark-submit --jars /opt/airflow/jars/postgresql-42.2.18.jar /opt/airflow/spark_jobs/transform_dim_weather.py'
     )
-
     dbt_run = BashOperator(
-    task_id='dbt_run',
-    bash_command='dbt run --project-dir /opt/airflow/dbt_project --profiles-dir /opt/airflow/dbt_project',
-)
+        task_id='dbt_run',
+        bash_command='dbt run --project-dir /opt/airflow/dbt_project --profiles-dir /opt/airflow/dbt_project',
+    )
 
-    # Chaînage avec dbt_run en fin
-    create_weather_table_task >> fetch_task >> stream_task >> create_dim_weather_task >> transform_dim_weather >> dbt_run
+    chain = (
+        create_weather_table_task >>
+        fetch_task >>
+        stream_task >>
+        create_dim_weather_task >>
+        transform_dim_weather >>
+        dbt_run
+    )

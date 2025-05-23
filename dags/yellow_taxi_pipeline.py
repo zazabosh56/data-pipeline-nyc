@@ -1,7 +1,9 @@
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
+from airflow.sensors.external_task import ExternalTaskSensor
 from airflow.utils.dates import days_ago
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from datetime import timedelta
 import psycopg2
 
@@ -69,6 +71,19 @@ def create_fact_taxi_trips_table():
             """)
     conn.close()
 
+def truncate_fact_taxi_trips():
+    conn = psycopg2.connect(
+        dbname='airflow',
+        user='airflow',
+        password='airflow',
+        host='postgres',
+        port=5432
+    )
+    with conn:
+        with conn.cursor() as cur:
+            cur.execute("TRUNCATE TABLE fact_taxi_trips;")
+    conn.close()
+
 with DAG(
     dag_id='yellow_taxi_pipeline',
     default_args=default_args,
@@ -83,6 +98,7 @@ with DAG(
         task_id='create_taxi_table',
         python_callable=create_taxi_table
     )
+
     load_task = BashOperator(
         task_id='load_yellow_taxi_data',
         bash_command="python /opt/airflow/scripts/load_yellow_taxi.py"
@@ -105,15 +121,38 @@ with DAG(
         python_callable=create_fact_taxi_trips_table
     )
 
+    truncate_fact_taxi_trips_task = PythonOperator(
+        task_id='truncate_fact_taxi_trips',
+        python_callable=truncate_fact_taxi_trips
+    )
+
     transform_fact_taxi_trips = BashOperator(
         task_id='transform_fact_taxi_trips',
         bash_command='spark-submit --jars /opt/airflow/jars/postgresql-42.2.18.jar /opt/airflow/spark_jobs/transform_fact_taxi_trips.py'
     )
 
-    dbt_run = BashOperator(
-    task_id='dbt_run',
-    bash_command='dbt run --project-dir /opt/airflow/dbt_project --profiles-dir /opt/airflow/dbt_project',
-)
+    trigger_weather = TriggerDagRunOperator(
+        task_id="trigger_weather_pipeline",
+        trigger_dag_id="weather_streaming_pipeline",  # le DAG cible !
+        wait_for_completion=False  # True si tu veux bloquer l'exécution jusqu'à la fin de Weather
+    )
 
-    # Chaînage complet avec dbt_run en fin
-    create_taxi_table_task >> load_task >> transform_task >> store_task >> create_fact_taxi_trips_task >> transform_fact_taxi_trips >> dbt_run
+    # ---- LA NOUVELLE DÉPENDANCE EXTERNE VERS weather_streaming_pipeline ----
+
+    dbt_run = BashOperator(
+        task_id='dbt_run',
+        bash_command='dbt run --project-dir /opt/airflow/dbt_project --profiles-dir /opt/airflow/dbt_project',
+    )
+
+    # Chaînage principal, plus besoin de wait_weather_pipeline
+    chain = (
+        create_taxi_table_task >>
+        load_task >>
+        transform_task >>
+        store_task >>
+        create_fact_taxi_trips_task >>
+        truncate_fact_taxi_trips_task >>
+        transform_fact_taxi_trips >>
+        trigger_weather >>
+        dbt_run   # ou un autre task si tu veux attendre la fin de weather, mais sinon on s’arrête là
+    )

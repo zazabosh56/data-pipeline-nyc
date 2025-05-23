@@ -4,21 +4,20 @@
 
 with base as (
     select
-        passenger_count,
-        sum(total_amount) as total_spent,
+        payment_type,
         count(*) as trip_count,
+        sum(tip_percent) as total_tip_percent,
         avg(tip_percent) as avg_tip_percent
     from {{ ref('trip_enriched') }}
-    where passenger_count is not null
-    group by passenger_count
+    where tip_percent is not null
+    group by payment_type
 )
 
 select
-    passenger_count as customer_id,
+    payment_type as customer_type,
     trip_count,
-    total_spent,
+    total_tip_percent,
     avg_tip_percent
 from base
 where trip_count > 10
-  and total_spent > 300
   and avg_tip_percent > 15
