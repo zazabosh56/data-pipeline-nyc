@@ -17,3 +17,23 @@ __pycache__/
 # Environnements virtuels
 venv/
 env/
+
+# Ignorer les fichiers exportés
+data/export/
+data/processed/
+data/raw/
+
+# Ou plus précis :
+*.crc
+*.parquet
+*.json
+_SUCCESS
+.part-*
+._SUCCESS*
+
+# Facultatif : ignorer les fichiers temporaires système
+.DS_Store
+Thumbs.db
+
+jars
+
